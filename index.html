@@ -51,7 +51,7 @@ input[type=range]{width:100%;height:36px}label{display:block;width:100%;text-ali
 <div class="scr" id="cfm"></div>
 <div class="scr" id="set"><div class="in"><h1>Controls</h1><div id="pv0"><div id="pb"><div id="pk"></div></div></div>
 <label>Joystick size <input type="range" id="s1" min="70" max="180"></label><label>Opacity <input type="range" id="s2" min="20" max="95"></label><label>Dead zone <input type="range" id="s3" min="0" max="40"></label>
-<button class="b2" id="sd"></button><h1 style="font-size:24px">Disaster chances</h1><div>Relative odds, shown as % — applies from the next round</div><div id="dpl" style="width:100%"></div><button class="b" id="sx">Done</button></div></div>
+<button class="b2" id="sd"></button><button class="b2" id="carToggle"></button><h1 style="font-size:24px">Disaster chances</h1><div>Relative odds, shown as % — applies from the next round</div><div id="dpl" style="width:100%"></div><button class="b" id="sx">Done</button></div></div>
 <div class="scr" id="res"></div>
 <div class="scr" id="gate"><div class="in"><h1>Open on a phone</h1><div>This game uses touch controls only.</div></div></div>
 <div id="toast"></div>
@@ -61,7 +61,7 @@ input[type=range]{width:100%;height:36px}label{display:block;width:100%;text-ali
 const $=s=>document.querySelector(s),R=Math.random,TAU=Math.PI*2,rr=(a,b)=>a+R()*(b-a),pick=a=>a[R()*a.length|0];
 /* ===== SAVE / LOAD (localStorage) ===== */
 const KEY='islandDisasterSurvival_save';
-let SV={coins:0,round:0,tut:0,owned:['skin:sun','skin:coral','hat:none','hat:cap','face:smile','trail:none','vfx:confetti','emote:wave'],eq:{skin:'sun',hat:'none',face:'smile',trail:'none',vfx:'confetti',emote:'wave'},set:{size:110,op:55,dz:10,side:'left',dp:{}}};
+let SV={coins:0,round:0,tut:0,owned:['skin:sun','skin:coral','hat:none','hat:cap','face:smile','trail:none','vfx:confetti','emote:wave'],eq:{skin:'sun',hat:'none',face:'smile',trail:'none',vfx:'confetti',emote:'wave'},set:{size:110,op:55,dz:10,side:'left',cars:true,dp:{}}};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s)SV={...SV,...s,eq:{...SV.eq,...s.eq},set:{...SV.set,...s.set}}}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(SV))}catch(e){}};
 /* ===== COSMETICS CATALOG: [id,name,price,data...] — cosmetics only, no gameplay effect ===== */
@@ -169,6 +169,7 @@ function applySet(){const s=SV.set,r=document.documentElement.style;r.setPropert
 const TU=['','Touch the left side and drag to move','Tap JUMP','Walk to YOUR car (your color) in the garage and tap CAR to drive. BRACE blocks damage'];
 function tutSet(n){tu=n;const h=$('#hint');if(n>=1&&n<=3){h.textContent=TU[n];h.style.display='block';if(n==3)setTimeout(()=>tutSet(4),6000)}else{h.style.display='none';tu=4;SV.tut=1;save()}}
 function toggleCar(c){
+ if(!SV.set.cars){toast('Cars are OFF in Settings');return}
  if(c.drv){c.drv=0;return}
  let k=null,bd=1e9;
  for(const v of CARS){
@@ -187,8 +188,8 @@ function ctrlPlayer(c){
  if(BT.em){BT.em=0;c.em=EM(SV.eq.emote);c.emt=2.2;c.ek=SV.eq.emote}}
 /* ===== BOT AI: explore, seek goals per disaster, flee hazards, make mistakes ===== */
 function pickGoal(b,k){b.toCar=0;
- // Bots deliberately use their assigned cars as a mobility option.
- if(!b.drv&&b.car&&R() < (k ? (.34+.46*b.sk) : (.18+.28*b.sk))){
+ // Bots use cars only when cars are enabled in Settings.
+ if(SV.set.cars&&!b.drv&&b.car&&R() < (k ? (.34+.46*b.sk) : (.18+.28*b.sk))){
   b.gx=b.car.x;b.gy=b.car.y;b.toCar=1;return
  }
  if(k=='acid'||k=='blizzard'||k=='lightning'){const hs=ST.filter(s=>'hbsg'.includes(s.t)&&s.hp>0).sort((p,q)=>Math.hypot(p.x-b.x,p.y-b.y)-Math.hypot(q.x-b.x,q.y-b.y));
@@ -209,7 +210,8 @@ function pickGoal(b,k){b.toCar=0;
 function botAI(b,dt){
  const k=ph=='dis'&&time>b.rt+D.t0?D.k:ph=='prep'&&D.k=='hurricane'&&T<=D.wt-b.rt*.5?'hurricane':'';
  b.gt-=dt;b.mist-=dt;
- if(b.toCar&&Math.hypot(b.x-b.car.x,b.y-b.car.y)<22){b.drv=1;b.toCar=0;b.gt=0;b.driveT=rr(4,9)}
+ if(SV.set.cars&&b.toCar&&b.car&&Math.hypot(b.x-b.car.x,b.y-b.car.y)<22){b.drv=1;b.toCar=0;b.gt=0;b.driveT=rr(4,9)}
+ if(!SV.set.cars)b.drv=0;
  if(b.drv){b.driveT=(b.driveT||5)-dt;if(b.driveT<=0)b.driveT=rr(4,9)}
  if(b.gt<=0||!b.gx){pickGoal(b,k);b.gt=rr(.9,2.4)}if(b.drv&&(k=='acid'||k=='blizzard'||k=='lightning')){b.gx=b.x;b.gy=b.y}
  if(k=='hurricane'&&D.int>0&&!bldAt(b.x,b.y)&&hAt(b.x,b.y)<wlAt(b.x,b.y)+.05&&b.gt>1)b.gt=.05; // flee rising water
@@ -321,7 +323,7 @@ function startRound(){
    o:p?{...SV.eq}:{skin:pick(IT.skin)[0],hat:pick(IT.hat)[0],face:pick(IT.face)[0],trail:R()<.25?pick(IT.trail)[0]:'none'}});
   for(let k=0;k<10;k++)pt(q[0],q[1],rr(0,60),rr(-30,30),rr(-30,30),rr(40,120),1,'#9ff',2.5)}
  const gar=ST.find(s=>s.t=='g');
-CARS=CH.map((c,i)=>(c.car={x:gar.x-105+(i%8)*30,y:gar.y+(i<8?-28:6),a:Math.PI/2,o:c.id,shared:false,type:'car'},c.drv=0,c.car));
+CARS=SV.set.cars?CH.map((c,i)=>(c.car={x:gar.x-105+(i%8)*30,y:gar.y+(i<8?-28:6),a:Math.PI/2,o:c.id,shared:false,type:'car'},c.drv=0,c.car)):(CH.forEach(c=>{c.car=null;c.drv=0}),[]);
  // Three shared semi trucks in/around the garage. Any survivor can use them.
  
  POT=[];
@@ -600,15 +602,17 @@ $('#shopb').onclick=()=>{$('#lobby').style.display='none';sh('#shop');renderShop
 $('#shd').onclick=()=>{$('#shop').style.display='none';showLobby()};
 $('#rnd').onclick=()=>{for(const c in CAT){if(c=='emote')continue;SV.eq[c]=pick(SV.owned.filter(x=>x.startsWith(c+':'))).split(':')[1]}save();renderShop()};
 let setFrom='lobby';
-function openSet(from){setFrom=from;$('#lobby').style.display='none';sh('#set');if(from=='game')paused=true;applySet()}
+function openSet(from){setFrom=from;$('#lobby').style.display='none';sh('#set');if(from=='game')paused=true;applySet();updateCarToggle()}
 $('#setb').onclick=()=>openSet('lobby');$('#gear').onclick=()=>openSet('game');
 $('#sx').onclick=()=>{$('#set').style.display='none';save();if(setFrom=='game')paused=false;else showLobby()};
 $('#s1').oninput=e=>{SV.set.size=+e.target.value;applySet()};$('#s2').oninput=e=>{SV.set.op=+e.target.value;applySet()};$('#s3').oninput=e=>{SV.set.dz=+e.target.value};
 $('#sd').onclick=()=>{SV.set.side=SV.set.side=='left'?'right':'left';applySet()};
+function updateCarToggle(){$('#carToggle').textContent='🚗 Cars: '+(SV.set.cars?'ON':'OFF')+' (tap to toggle)';$('#carToggle').classList.toggle('on',SV.set.cars)}
+$('#carToggle').onclick=()=>{SV.set.cars=!SV.set.cars;if(!SV.set.cars){for(const c of CH){c.drv=0;c.car=null}CARS=[]}save();updateCarToggle()};
 /* ===== BOOT ===== */
 if(!(navigator.maxTouchPoints>0||'ontouchstart' in window))sh('#gate');
 function dpUpd(){const w=DS.map(d=>SV.set.dp[d.k]??50),t=w.reduce((a,b)=>a+b,0);DS.forEach((d,i)=>{$('#dp_'+d.k).textContent=(t?Math.round(w[i]*100/t):Math.round(100/DS.length))+'%';$('#dr_'+d.k).value=w[i]})}
 $('#dpl').innerHTML=DS.map(d=>`<label>${d.e} ${d.n} <b id="dp_${d.k}"></b><input type="range" min="0" max="100" id="dr_${d.k}" data-k="${d.k}"></label>`).join('');
 $('#dpl').oninput=e=>{SV.set.dp[e.target.dataset.k]=+e.target.value;dpUpd()};dpUpd();
-rs();applySet();genIsland();showLobby();requestAnimationFrame(frame);
+rs();applySet();updateCarToggle();genIsland();showLobby();requestAnimationFrame(frame);
 </script></body></html>
